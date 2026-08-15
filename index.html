@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Pro Futbol</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background: #0d1117;
+            color: #f0f6fc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* TABLO VƏ UI PANELİ */
+        #ui-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 1400px;
+            max-width: 95vw;
+            margin-bottom: 12px;
+            padding: 10px 25px;
+            background: rgba(22, 27, 34, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .team-score {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .score-box {
+            font-size: 32px;
+            padding: 4px 16px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .red-team { color: #ff4d4d; }
+        .blue-team { color: #3399ff; }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-red { background: #e63946; color: #fff; }
+        .btn-red:hover { background: #ff4d4d; box-shadow: 0 0 12px rgba(255, 77, 77, 0.5); }
+
+        .btn-blue { background: #0077b6; color: #fff; }
+        .btn-blue:hover { background: #3399ff; box-shadow: 0 0 12px rgba(51, 153, 255, 0.5); }
+
+        /* CANVAS MEYDANÇA CONTAINER */
+        #game-container {
+            position: relative;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+        }
+
+        canvas {
+            display: block;
+            background: #238636;
+        }
+
+        /* QOL BİLDİRİŞİ */
+        #goal-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 80px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px currentColor;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        #goal-banner.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-header">
+        <div class="team-score red-team">
+            <span>QIRMIZI</span>
+            <div id="score-red" class="score-box">0</div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn-red" onclick="selectTeam('red')">Qırmızıya Keç</button>
+            <button class="btn-blue" onclick="selectTeam('blue')">Göyə Keç</button>
+        </div>
+
+        <div class="team-score blue-team">
+            <div id="score-blue" class="score-box">0</div>
+            <span>GÖY</span>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="goal-banner">QOOOOOL!</div>
+        <canvas id="gameCanvas" width="1400" height="800"></canvas>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const WIDTH = 1400;
+        const HEIGHT = 800;
+
+        let myId = null;
+        let myTeam = null;
+        let gameState = { players: {}, ball: {}, score: { red: 0, blue: 0 } };
+
+        const keys = { w: false, a: false, s: false, d: false };
+        let isCharging = false;
+        let chargePower = 0;
+        let chargeInterval = null;
+
+        // --- İDARƏETMƏ ---
+        window.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+            if (["w", "a", "s", "d"].includes(key) && !keys[key]) {
+                keys[key] = true;
+                socket.emit("keys", keys);
+            }
+        });
+
+        window.addEventListener("keyup", (e) => {
+            const key = e.key.toLowerCase();
+            if (["w", "a", "s", "d"].includes(key)) {
+                keys[key] = false;
+                socket.emit("keys", keys);
+            }
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = WIDTH / rect.width;
+            const scaleY = HEIGHT / rect.height;
+            socket.emit("mouse", {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            });
+        });
+
+        canvas.addEventListener("mousedown", (e) => {
+            if (e.button === 0 && !isCharging) {
+                isCharging = true;
+                chargePower = 0;
+                chargeInterval = setInterval(() => {
+                    chargePower = Math.min(1, chargePower + 0.05);
+                }, 20);
+            }
+        });
+
+        canvas.addEventListener("mouseup", (e) => {
+            if (e.button === 0 && isCharging) {
+                clearInterval(chargeInterval);
+                socket.emit("kick", { charge: chargePower });
+                isCharging = false;
+                chargePower = 0;
+            }
+        });
+
+        function selectTeam(team) {
+            if (!myTeam) {
+                socket.emit("chooseTeam", team);
+            } else {
+                socket.emit("changeTeam", team);
+            }
+        }
+
+        // --- SOCKET HADİSƏLƏRİ ---
+        socket.on("welcome", (data) => {
+            myId = data.id;
+            myTeam = data.team;
+        });
+
+        socket.on("state", (state) => {
+            gameState = state;
+            document.getElementById("score-red").innerText = state.score.red;
+            document.getElementById("score-blue").innerText = state.score.blue;
+            drawGame();
+        });
+
+        socket.on("goal", (data) => {
+            const banner = document.getElementById("goal-banner");
+            banner.style.color = data.scorer === "red" ? "#ff4d4d" : "#3399ff";
+            banner.innerText = "QOOOOOL!";
+            banner.classList.add("active");
+            setTimeout(() => {
+                banner.classList.remove("active");
+            }, 2000);
+        });
+
+        // --- RƏSM ÇƏKMƏ (GRAPHICS ENGINE) ---
+        function drawGame() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // 1. QAZON VƏ XƏTLƏR
+            drawPitch();
+
+            // 2. OYUNÇULAR
+            for (const id in gameState.players) {
+                drawPlayer(gameState.players[id]);
+            }
+
+            // 3. TOP
+            if (gameState.ball && gameState.ball.x !== undefined) {
+                drawBall(gameState.ball);
+            }
+        }
+
+        function drawPitch() {
+            // Ot zolaqları
+            const stripWidth = 100;
+            for (let x = 0; x < WIDTH; x += stripWidth) {
+                ctx.fillStyle = (x / stripWidth) % 2 === 0 ? "#1e7e34" : "#238636";
+                ctx.fillRect(x, 0, stripWidth, HEIGHT);
+            }
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.lineWidth = 4;
+
+            // Xarici xətlər
+            ctx.strokeRect(20, 20, WIDTH - 40, HEIGHT - 40);
+
+            // Mərkəz xətti və dairəsi
+            ctx.beginPath();
+            ctx.moveTo(WIDTH / 2, 20);
+            ctx.lineTo(WIDTH / 2, HEIGHT - 20);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(WIDTH / 2, HEIGHT / 2, 90, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.beginPath();
+            ctx.arc(WIDTH / 2, HEIGHT / 2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Qapı Sahələri (Cərimə meydançası)
+            ctx.strokeRect(20, HEIGHT / 2 - 180, 150, 360);
+            ctx.strokeRect(WIDTH - 170, HEIGHT / 2 - 180, 150, 360);
+
+            // Qapılar
+            ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.fillRect(0, HEIGHT / 2 - 90, 20, 180);
+            ctx.strokeRect(0, HEIGHT / 2 - 90, 20, 180);
+
+            ctx.fillRect(WIDTH - 20, HEIGHT / 2 - 90, 20, 180);
+            ctx.strokeRect(WIDTH - 20, HEIGHT / 2 - 90, 20, 180);
+        }
+
+        function drawPlayer(p) {
+            const isMe = p.id === myId;
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+
+            // İstifadəçi altında göstərici işıq (Aura)
+            if (isMe) {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                ctx.fill();
+            }
+
+            // Oyunçu Dairəsi
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+            
+            const mainColor = p.team === "red" ? "#e63946" : "#0077b6";
+            const darkColor = p.team === "red" ? "#9b2226" : "#03045e";
+
+            const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, p.radius);
+            grad.addColorStop(0, mainColor);
+            grad.addColorStop(1, darkColor);
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = isMe ? "#ffffff" : "rgba(0,0,0,0.5)";
+            ctx.stroke();
+
+            // Oyunçu Nömrəsi
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(p.role || p.number, 0, 1);
+
+            // Zərbə Gücü Barı (Ekranda mausu sıxanda görsənir)
+            if (isMe && isCharging) {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius + 12, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * chargePower));
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "#ffcc00";
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawBall(b) {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+
+            // Topun Kölgəsi
+            ctx.beginPath();
+            ctx.arc(3, 3, b.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.fill();
+
+            // Top Bədəni
+            ctx.beginPath();
+            ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(-2, -2, 1, 0, 0, b.radius);
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.8, "#dddddd");
+            grad.addColorStop(1, "#aaaaaa");
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = "#333";
+            ctx.stroke();
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
