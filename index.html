@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Futbol - ESC Komanda Menyu & Balans</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background: #0d1117;
+            color: #f0f6fc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 15px;
+        }
+
+        #ui-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 1200px;
+            max-width: 95vw;
+            margin-bottom: 12px;
+            padding: 10px 25px;
+            background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .team-score {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .score-box {
+            font-size: 32px;
+            padding: 4px 16px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .map-badge {
+            font-size: 14px;
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+            font-weight: bold;
+        }
+
+        .red-team { color: #ff4d4d; }
+        .blue-team { color: #3399ff; }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            width: 1200px;
+            height: 700px;
+            max-width: 95vw;
+            max-height: 80vh;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #155d27;
+        }
+
+        /* NİCK (AD) PƏNCƏRƏSİ */
+        #nick-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #nick-modal input {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            width: 280px;
+            text-align: center;
+        }
+
+        #nick-modal input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+        }
+
+
+        /* LOBBY SİSTEMİ */
+        #lobby-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.97);
+            backdrop-filter: blur(14px);
+            z-index: 190;
+            display: none;
+            padding: 35px;
+        }
+
+        #lobby-modal.active { display: flex; }
+
+        .lobby-wrap {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            gap: 25px;
+        }
+
+        .lobby-left {
+            width: 330px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .lobby-title {
+            color: #eab308;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .lobby-subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .lobby-btn {
+            width: 100%;
+            padding: 13px 16px;
+            font-size: 15px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+
+        .lobby-create {
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+            color: #000;
+        }
+
+        .lobby-refresh {
+            background: #334155;
+            color: #fff;
+        }
+
+        .lobby-refresh:hover { background: #475569; }
+
+        .lobby-right {
+            flex: 1;
+            min-width: 0;
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lobby-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        #room-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            padding-right: 4px;
+        }
+
+        .room-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 13px 14px;
+            background: rgba(15,23,42,0.8);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 9px;
+        }
+
+        .room-item:hover {
+            border-color: rgba(234,179,8,0.45);
+        }
+
+        .room-info { min-width: 0; }
+
+        .room-name {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .room-meta {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .room-join {
+            background: #0077b6;
+            color: #fff;
+            padding: 8px 14px;
+            flex-shrink: 0;
+        }
+
+        .room-join:hover { background: #3399ff; }
+
+        #room-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        #room-create-modal {
+            position: absolute;
+            inset: 0;
+            background: rgba(2,6,23,0.75);
+            z-index: 195;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #room-create-modal.active { display: flex; }
+
+        .room-create-box {
+            width: 430px;
+            max-width: 90%;
+            background: #1e293b;
+            border: 1px solid rgba(234,179,8,0.35);
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+        }
+
+        .room-create-box h3 {
+            color: #eab308;
+            margin-bottom: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 13px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 7px;
+            padding: 10px 12px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: #38bdf8;
+        }
+
+        .password-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cbd5e1;
+            font-size: 13px;
+            margin-bottom: 13px;
+        }
+
+        .password-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        #room-password-group { display: none; }
+
+        .room-create-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .room-create-actions button { flex: 1; }
+
+        .btn-cancel-room {
+            background: #475569;
+            color: #fff;
+        }
+
+        /* ÇAT SİSTEMİ STİLLƏRİ */
+        #chat-box {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            width: 320px;
+            height: 200px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            z-index: 20;
+            transition: opacity 0.2s ease;
+        }
+
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-right: 4px;
+            font-size: 13px;
+        }
+
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .chat-msg {
+            word-wrap: break-word;
+            line-height: 1.3;
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .chat-msg .author-red { color: #ff6b6b; font-weight: bold; }
+        .chat-msg .author-blue { color: #4dabf7; font-weight: bold; }
+        .chat-msg .author-spec { color: #adb5bd; font-weight: bold; }
+
+        #chat-input-container {
+            margin-top: 6px;
+            display: flex;
+            gap: 5px;
+        }
+
+        #chat-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        #chat-input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+        }
+
+        /* BANNERLƏR */
+        #goal-banner, #pause-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 70px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px currentColor;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+            text-align: center;
+        }
+
+        #goal-banner.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        #pause-banner {
+            color: #eab308;
+            font-size: 55px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 20px 40px;
+            border-radius: 16px;
+            border: 2px solid #eab308;
+        }
+
+        #pause-banner.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ESC KOMANDA VƏ ADMIN MENYUSU */
+        #esc-menu {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #esc-menu.active { display: flex; }
+
+        .menu-columns {
+            display: flex;
+            gap: 20px;
+            width: 900px;
+            max-width: 90vw;
+            height: 400px;
+        }
+
+        .team-column {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            justify-content: space-between;
+        }
+
+        .team-column h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .player-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .player-item {
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-red { background: #e63946; color: #fff; }
+        .btn-red:hover { background: #ff4d4d; }
+
+        .btn-blue { background: #0077b6; color: #fff; }
+        .btn-blue:hover { background: #3399ff; }
+
+        .btn-spec { background: #475569; color: #fff; }
+        .btn-spec:hover { background: #64748b; }
+
+        #admin-section {
+            width: 900px;
+            max-width: 90vw;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+            text-align: center;
+        }
+
+        .btn-admin {
+            background: linear-gradient(135deg, #eab308, #ca8a04);
+            color: #000;
+            font-weight: 800;
+            padding: 8px 14px;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+
+        .btn-pause { background: #ef4444; color: white; font-weight: bold; }
+
+        .map-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-map {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #334155;
+            padding: 6px;
+            font-size: 12px;
+        }
+
+        .controls-info {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 8px;
+            border-radius: 6px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-header">
+        <div class="team-score red-team">
+            <span>QIRMIZI</span>
+            <div id="score-red" class="score-box">0</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div id="current-map-badge" class="map-badge">MAP: 5vs5</div>
+                <div id="header-score-limit" class="map-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);">LİMİT: 3</div>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8;">Komanda seçmək üçün **ESC** basın</div>
+        </div>
+
+        <div class="team-score blue-team">
+            <div id="score-blue" class="score-box">0</div>
+            <span>GÖY</span>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <!-- NİK DAXİL ETMƏ PƏNCƏRƏSİ -->
+        <div id="nick-modal">
+            <h2 style="color: #eab308;">OYUNA XOŞ GƏLDİNİZ</h2>
+            <p style="color: #94a3b8; font-size: 14px;">Zəhmət olmasa istifadəçi adınızı (nick) daxil edin:</p>
+            <input type="text" id="nick-input" placeholder="Adınızı yazın..." maxlength="15" autocomplete="off" />
+            <button class="btn-admin" onclick="submitNick()">Oyuna Qoşul</button>
+        </div>
+
+        <!-- LOBBY MENYUSU -->
+        <div id="lobby-modal">
+            <div class="lobby-wrap">
+                <div class="lobby-left">
+                    <div>
+                        <h2 class="lobby-title">LOBBY</h2>
+                        <p class="lobby-subtitle">Salam, <b id="lobby-nick">Oyunçu</b>! Otaq seç və oyuna qoşul.</p>
+                    </div>
+                    <button class="lobby-btn lobby-create" onclick="openCreateRoom()">+ Otaq yarat</button>
+                    <button class="lobby-btn lobby-refresh" onclick="refreshRooms()">↻ Otaqları yenilə</button>
+                </div>
+
+                <div class="lobby-right">
+                    <div class="lobby-list-header">
+                        <h3>Otaqlar</h3>
+                        <span id="room-count" style="color:#94a3b8;font-size:12px;">0 otaq</span>
+                    </div>
+                    <div id="room-list"></div>
+                    <div id="room-empty">Hazırda açıq otaq yoxdur.<br>İlk otağı sən yarat!</div>
+                </div>
+            </div>
+
+            <!-- OTAQ YARATMA -->
+            <div id="room-create-modal">
+                <div class="room-create-box">
+                    <h3>Yeni otaq yarat</h3>
+
+                    <div class="form-group">
+                        <label>Otaq adı</label>
+                        <input id="room-name-input" type="text" maxlength="25" placeholder="Məsələn: Dostlarla oyun" autocomplete="off">
+                    </div>
+
+                    <div class="password-row">
+                        <input id="room-has-password" type="checkbox" onchange="toggleRoomPassword()">
+                        <label for="room-has-password">Şifrə ilə qorunsun</label>
+                    </div>
+
+                    <div id="room-password-group" class="form-group">
+                        <label>Şifrə</label>
+                        <input id="room-password-input" type="password" maxlength="20" placeholder="Otaq şifrəsi" autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Maksimum oyunçu sayı</label>
+                        <select id="room-max-players">
+                            <option value="2">2 nəfər</option>
+                            <option value="4">4 nəfər</option>
+                            <option value="6">6 nəfər</option>
+                            <option value="8">8 nəfər</option>
+                            <option value="10">10 nəfər</option>
+                            <option value="12">12 nəfər</option>
+                            <option value="16">16 nəfər</option>
+                            <option value="22" selected>22 nəfər</option>
+                        </select>
+                    </div>
+
+                    <div class="room-create-actions">
+                        <button class="btn-cancel-room" onclick="closeCreateRoom()">Ləğv et</button>
+                        <button class="lobby-create" onclick="createRoom()">Otağı yarat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-info">WASD: Hərəkət | SPACE: Zərbə | ENTER: Çat | T: Çatı Gizlə/Aç | ESC: Menyu</div>
+        <div id="goal-banner">QOOOOOL!</div>
+        <div id="pause-banner">OYUN DAYANDIRILDI</div>
+
+        <div id="chat-box">
+            <div id="chat-messages"></div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Enter basaraq mesaj yazın..." maxlength="60" autocomplete="off" />
+            </div>
+        </div>
+        
+        <!-- ESC KOMANDA VƏ ADMIN MENYUSU -->
+        <div id="esc-menu">
+            <h2 style="color: #eab308; margin-bottom: 5px;">OYUN MENYUSU</h2>
+            <div class="menu-columns">
+                <!-- Sol: Qırmızı Komanda -->
+                <div class="team-column" style="border-color: rgba(230, 57, 70, 0.4);">
+                    <h3 class="red-team">Qırmızı Komanda</h3>
+                    <div id="red-team-list" class="player-list"></div>
+                    <button class="btn-red" onclick="selectTeam('red')">Qırmızıya Keç</button>
+                </div>
+
+                <!-- Orta: İzləyicilər -->
+                <div class="team-column" style="border-color: rgba(255, 255, 255, 0.2);">
+                    <h3 style="color: #cbd5e1;">İzləyicilər</h3>
+                    <div id="spec-team-list" class="player-list"></div>
+                    <button class="btn-spec" onclick="selectTeam(null)">İzləyici Ol</button>
+                </div>
+
+                <!-- Sağ: Göy Komanda -->
+                <div class="team-column" style="border-color: rgba(0, 119, 182, 0.4);">
+                    <h3 class="blue-team">Göy Komanda</h3>
+                    <div id="blue-team-list" class="player-list"></div>
+                    <button class="btn-blue" onclick="selectTeam('blue')">Göyə Keç</button>
+                </div>
+            </div>
+
+            <div id="admin-section">
+                <div id="non-admin-view">
+                    <button class="btn-admin" onclick="requestAdmin()">Adminlik Şifrəsini Yaz</button>
+                </div>
+                <div id="admin-controls-view" style="display: none; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #eab308; font-size: 13px;">Admin İdarəetmə Paneli</span>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <span style="font-size: 12px; color: #cbd5e1;">Qol Limiti:</span>
+                            <button class="btn-admin" onclick="changeScoreLimit(-1)" style="background:#334155; color:#fff; padding:4px 8px;">-</button>
+                            <span id="score-limit-display" style="font-weight: bold; color: #eab308; padding: 0 4px;">3</span>
+                            <button class="btn-admin" onclick="changeScoreLimit(1)" style="background:#334155; color:#fff; padding:4px 8px;">+</button>
+                            <button id="btn-toggle-pause" class="btn-admin btn-pause" onclick="togglePause()" style="padding: 4px 10px;">Pauza</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 12px; font-weight: bold; color: #cbd5e1; white-space: nowrap;">Xəritə:</span>
+                        <div class="map-grid" style="margin: 0; flex: 1;">
+                            <button class="btn-map" onclick="selectMap('1vs1')">1v1</button>
+                            <button class="btn-map" onclick="selectMap('3vs3')">3v3</button>
+                            <button class="btn-map" onclick="selectMap('5vs5')">5v5</button>
+                            <button class="btn-map" onclick="selectMap('8vs8')">8v8</button>
+                            <button class="btn-map" onclick="selectMap('11vs11')">11v11</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8;">Menyunu bağlamaq üçün yenidən <b>ESC</b> basın</div>
+        </div>
+
+        <canvas id="gameCanvas" width="1200" height="700"></canvas>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const chatBox = document.getElementById("chat-box");
+        const chatInput = document.getElementById("chat-input");
+        const chatMessages = document.getElementById("chat-messages");
+        const escMenu = document.getElementById("esc-menu");
+        const nickModal = document.getElementById("nick-modal");
+        const nickInput = document.getElementById("nick-input");
+        const lobbyModal = document.getElementById("lobby-modal");
+        const lobbyNick = document.getElementById("lobby-nick");
+        const roomList = document.getElementById("room-list");
+        const roomEmpty = document.getElementById("room-empty");
+        const roomCount = document.getElementById("room-count");
+
+        const VIEW_WIDTH = 1200;
+        const VIEW_HEIGHT = 700;
+
+        let WORLD_WIDTH = 1400;
+        let WORLD_HEIGHT = 800;
+
+        let cameraX = 0;
+        let cameraY = 0;
+
+        let myId = null;
+        let myTeam = null;
+        let gameState = { players: {}, ball: {}, score: { red: 0, blue: 0 }, isPaused: false, scoreLimit: 3 };
+
+        const keys = { w: false, a: false, s: false, d: false };
+        let isCharging = false;
+        let chargePower = 0;
+        let chargeInterval = null;
+        let isChatVisible = true;
+
+        const playerBubbles = {};
+
+        function submitNick() {
+            let nick = nickInput.value.trim();
+            if (!nick) nick = "Oyunçu";
+
+            socket.emit("setNick", nick);
+            nickModal.style.display = "none";
+            lobbyNick.innerText = nick;
+            lobbyModal.classList.add("active");
+            refreshRooms();
+            chatInput.blur();
+        }
+
+        function refreshRooms() {
+            socket.emit("getRooms");
+        }
+
+        function openCreateRoom() {
+            document.getElementById("room-create-modal").classList.add("active");
+            document.getElementById("room-name-input").focus();
+        }
+
+        function closeCreateRoom() {
+            document.getElementById("room-create-modal").classList.remove("active");
+        }
+
+        function toggleRoomPassword() {
+            const enabled = document.getElementById("room-has-password").checked;
+            document.getElementById("room-password-group").style.display = enabled ? "block" : "none";
+            if (!enabled) document.getElementById("room-password-input").value = "";
+        }
+
+        function createRoom() {
+            const name = document.getElementById("room-name-input").value.trim();
+            const hasPassword = document.getElementById("room-has-password").checked;
+            const password = document.getElementById("room-password-input").value;
+            const maxPlayers = Number(document.getElementById("room-max-players").value);
+
+            if (!name) {
+                alert("Zəhmət olmasa otaq adı yazın.");
+                return;
+            }
+
+            if (hasPassword && !password) {
+                alert("Şifrəli otaq üçün şifrə yazın.");
+                return;
+            }
+
+            socket.emit("createRoom", {
+                name,
+                password: hasPassword ? password : "",
+                maxPlayers
+            });
+        }
+
+        function renderRooms(rooms) {
+            roomList.innerHTML = "";
+            const list = Array.isArray(rooms) ? rooms : [];
+            roomCount.innerText = list.length + (list.length === 1 ? " otaq" : " otaq");
+            roomEmpty.style.display = list.length ? "none" : "flex";
+
+            list.forEach(room => {
+                const item = document.createElement("div");
+                item.className = "room-item";
+
+                const info = document.createElement("div");
+                info.className = "room-info";
+
+                const name = document.createElement("div");
+                name.className = "room-name";
+                name.innerText = (room.hasPassword ? "🔒 " : "🌐 ") + (room.name || "Adsız otaq");
+
+                const meta = document.createElement("div");
+                meta.className = "room-meta";
+                meta.innerText = "👥 " + (room.players || 0) + "/" + (room.maxPlayers || 22);
+
+                info.appendChild(name);
+                info.appendChild(meta);
+
+                const joinBtn = document.createElement("button");
+                joinBtn.className = "room-join";
+                joinBtn.innerText = "Qoşul";
+                joinBtn.onclick = () => joinRoom(room.id, !!room.hasPassword);
+
+                if ((room.players || 0) >= (room.maxPlayers || 22)) {
+                    joinBtn.disabled = true;
+                    joinBtn.innerText = "Dolu";
+                    joinBtn.style.opacity = "0.5";
+                    joinBtn.style.cursor = "not-allowed";
+                }
+
+                item.appendChild(info);
+                item.appendChild(joinBtn);
+                roomList.appendChild(item);
+            });
+        }
+
+        function joinRoom(roomId, hasPassword) {
+            let password = "";
+            if (hasPassword) {
+                password = prompt("Bu otaq şifrə ilə qorunur:");
+                if (password === null) return;
+            }
+            socket.emit("joinRoom", { roomId, password });
+        }
+
+        socket.on("roomList", (rooms) => {
+            renderRooms(rooms);
+        });
+
+        socket.on("roomCreated", (data) => {
+            closeCreateRoom();
+            if (data && data.roomId) {
+                socket.emit("joinRoom", { roomId: data.roomId, password: data.password || "" });
+            }
+        });
+
+        socket.on("joinedRoom", (data) => {
+    lobbyModal.classList.remove("active");
+    refreshRooms();
+
+    // Otağı yaradan şəxs avtomatik admin olur
+    // və ESC menyusundakı admin paneli açılır.
+    if (data && data.isAdmin) {
+        document.getElementById("non-admin-view").style.display = "none";
+        document.getElementById("admin-controls-view").style.display = "flex";
+    }
+});
+
+        socket.on("roomError", (message) => {
+            alert(message || "Otaq əməliyyatı uğursuz oldu.");
+        });
+
+        nickInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                submitNick();
+            }
+        });
+
+        // KLAVİATURA İDARƏETMƏSİ
+        window.addEventListener("keydown", (e) => {
+            if (nickModal.style.display !== "none") return;
+
+            const key = e.key.toLowerCase();
+
+            if ((e.code === "KeyT" || key === "t") && document.activeElement !== chatInput) {
+                e.preventDefault();
+                isChatVisible = !isChatVisible;
+                chatBox.style.display = isChatVisible ? "flex" : "none";
+                return;
+            }
+
+            if (e.key === "Enter") {
+                if (document.activeElement === chatInput) {
+                    const msg = chatInput.value.trim();
+                    if (msg.length > 0) {
+                        socket.emit("chatMessage", msg);
+                        chatInput.value = "";
+                    }
+                    chatInput.blur();
+                } else {
+                    e.preventDefault();
+                    if (!isChatVisible) {
+                        isChatVisible = true;
+                        chatBox.style.display = "flex";
+                    }
+                    chatInput.focus();
+                    for (let k in keys) keys[k] = false;
+                    socket.emit("keys", keys);
+                }
+                return;
+            }
+
+            if (e.key === "Escape" || e.code === "Escape") {
+                if (document.activeElement === chatInput) {
+                    chatInput.blur();
+                    return;
+                }
+                escMenu.classList.toggle("active");
+                return;
+            }
+
+            if (document.activeElement === chatInput) return;
+
+            if (e.code === "Space" || e.key === " ") {
+                e.preventDefault();
+                if (!isCharging) {
+                    isCharging = true;
+                    chargePower = 0;
+                    chargeInterval = setInterval(() => {
+                        chargePower = Math.min(1, chargePower + 0.06);
+                    }, 20);
+                }
+                return;
+            }
+
+            if (["w", "a", "s", "d"].includes(key)) {
+                e.preventDefault();
+                if (!keys[key]) {
+                    keys[key] = true;
+                    socket.emit("keys", keys);
+                }
+            }
+        });
+
+        window.addEventListener("keyup", (e) => {
+            if (nickModal.style.display !== "none" || document.activeElement === chatInput) return;
+
+            const key = e.key.toLowerCase();
+
+            if (e.code === "Space" || e.key === " ") {
+                e.preventDefault();
+                if (isCharging) {
+                    clearInterval(chargeInterval);
+                    socket.emit("kick", { charge: chargePower });
+                    isCharging = false;
+                    chargePower = 0;
+                }
+                return;
+            }
+
+            if (["w", "a", "s", "d"].includes(key)) {
+                e.preventDefault();
+                keys[key] = false;
+                socket.emit("keys", keys);
+            }
+        });
+
+        socket.on("chatMessage", (data) => {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "chat-msg";
+
+            let teamClass = "author-spec";
+            let teamName = "İZLƏYİCİ";
+            if (data.team === "red") { teamClass = "author-red"; teamName = "QIRMIZI"; }
+            if (data.team === "blue") { teamClass = "author-blue"; teamName = "GÖY"; }
+
+            msgDiv.innerHTML = `<span class="${teamClass}">[${teamName}] ${escapeHtml(data.name)}:</span> ${escapeHtml(data.text)}`;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            playerBubbles[data.id] = {
+                text: data.text,
+                expiresAt: Date.now() + 4000
+            };
+        });
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function selectTeam(team) {
+            socket.emit("changeTeam", team);
+            escMenu.classList.remove("active");
+        }
+
+        function requestAdmin() {
+            const pwd = prompt("Admin şifrəsini daxil edin:");
+            if (pwd) socket.emit("claimAdmin", { password: pwd });
+        }
+
+        function togglePause() { socket.emit("adminTogglePause"); }
+        function selectMap(mapKey) { socket.emit("adminSelectMap", mapKey); }
+        function changeScoreLimit(amount) { socket.emit("adminChangeScoreLimit", amount); }
+
+        socket.on("gameReset", () => {
+            escMenu.classList.add("active");
+        });
+
+        socket.on("adminResult", (res) => {
+            alert(res.message);
+            if (res.success) {
+                document.getElementById("non-admin-view").style.display = "none";
+                document.getElementById("admin-controls-view").style.display = "flex";
+            }
+        });
+
+        socket.on("welcome", (data) => {
+            myId = data.id;
+            myTeam = data.team;
+        });
+
+        socket.on("state", (state) => {
+            gameState = state;
+
+            if (state.map) {
+                WORLD_WIDTH = state.map.width;
+                WORLD_HEIGHT = state.map.height;
+                document.getElementById("current-map-badge").innerText = "MAP: " + state.map.key;
+            }
+
+            document.getElementById("score-red").innerText = state.score ? state.score.red : 0;
+            document.getElementById("score-blue").innerText = state.score ? state.score.blue : 0;
+
+            if (state.scoreLimit !== undefined) {
+                document.getElementById("score-limit-display").innerText = state.scoreLimit;
+                document.getElementById("header-score-limit").innerText = "LİMİT: " + state.scoreLimit;
+            }
+
+            const pauseBanner = document.getElementById("pause-banner");
+            if (state.isPaused) pauseBanner.classList.add("active");
+            else pauseBanner.classList.remove("active");
+
+            updateEscLists(state.players);
+            drawGame();
+        });
+
+        function updateEscLists(players) {
+            const redList = document.getElementById("red-team-list");
+            const blueList = document.getElementById("blue-team-list");
+            const specList = document.getElementById("spec-team-list");
+
+            redList.innerHTML = "";
+            blueList.innerHTML = "";
+            specList.innerHTML = "";
+
+            Object.values(players).forEach(p => {
+                const item = document.createElement("div");
+                item.className = "player-item";
+                const isMe = p.id === myId;
+                item.innerHTML = `${p.isAdmin ? '👑 ' : ''}${escapeHtml(p.name || 'Oyunçu')}${isMe ? ' (Sən)' : ''}`;
+
+                if (p.team === "red") {
+                    redList.appendChild(item);
+                } else if (p.team === "blue") {
+                    blueList.appendChild(item);
+                } else {
+                    specList.appendChild(item);
+                }
+            });
+        }
+
+        socket.on("goal", (data) => {
+            const banner = document.getElementById("goal-banner");
+            banner.style.color = data.scorer === "red" ? "#ff4d4d" : "#3399ff";
+            banner.innerText = "QOOOOOL!";
+            banner.classList.add("active");
+            setTimeout(() => banner.classList.remove("active"), 2000);
+        });
+
+        function updateCamera() {
+            let targetX = WORLD_WIDTH / 2;
+            let targetY = WORLD_HEIGHT / 2;
+
+            if (myId && gameState.players[myId]) {
+                targetX = gameState.players[myId].x;
+                targetY = gameState.players[myId].y;
+            } else if (gameState.ball && gameState.ball.x !== undefined) {
+                targetX = gameState.ball.x;
+                targetY = gameState.ball.y;
+            }
+
+            cameraX = targetX - VIEW_WIDTH / 2;
+            cameraY = targetY - VIEW_HEIGHT / 2;
+
+            if (WORLD_WIDTH > VIEW_WIDTH) {
+                cameraX = Math.max(0, Math.min(WORLD_WIDTH - VIEW_WIDTH, cameraX));
+            } else {
+                cameraX = (WORLD_WIDTH - VIEW_WIDTH) / 2;
+            }
+
+            if (WORLD_HEIGHT > VIEW_HEIGHT) {
+                cameraY = Math.max(0, Math.min(WORLD_HEIGHT - VIEW_HEIGHT, cameraY));
+            } else {
+                cameraY = (WORLD_HEIGHT - VIEW_HEIGHT) / 2;
+            }
+        }
+
+        function drawGame() {
+            updateCamera();
+            ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+
+            ctx.save();
+            ctx.translate(-cameraX, -cameraY);
+
+            drawPitch();
+
+            for (const id in gameState.players) {
+                drawPlayer(gameState.players[id]);
+            }
+
+            if (gameState.ball && gameState.ball.x !== undefined) {
+                drawBall(gameState.ball);
+            }
+
+            ctx.restore();
+        }
+
+        function drawPitch() {
+            const stripWidth = 100;
+            for (let x = 0; x < WORLD_WIDTH; x += stripWidth) {
+                ctx.fillStyle = (x / stripWidth) % 2 === 0 ? "#1e7e34" : "#238636";
+                ctx.fillRect(x, 0, stripWidth, WORLD_HEIGHT);
+            }
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.lineWidth = 4;
+
+            ctx.strokeRect(20, 20, WORLD_WIDTH - 40, WORLD_HEIGHT - 40);
+
+            ctx.beginPath();
+            ctx.moveTo(WORLD_WIDTH / 2, 20);
+            ctx.lineTo(WORLD_WIDTH / 2, WORLD_HEIGHT - 20);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.11, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.beginPath();
+            ctx.arc(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            const goalBoxHeight = 360;
+            ctx.strokeRect(20, WORLD_HEIGHT / 2 - goalBoxHeight / 2, 150, goalBoxHeight);
+            ctx.strokeRect(WORLD_WIDTH - 170, WORLD_HEIGHT / 2 - goalBoxHeight / 2, 150, goalBoxHeight);
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.fillRect(0, WORLD_HEIGHT / 2 - 90, 20, 180);
+            ctx.strokeRect(0, WORLD_HEIGHT / 2 - 90, 20, 180);
+
+            ctx.fillRect(WORLD_WIDTH - 20, WORLD_HEIGHT / 2 - 90, 20, 180);
+            ctx.strokeRect(WORLD_WIDTH - 20, WORLD_HEIGHT / 2 - 90, 20, 180);
+        }
+
+        function drawPlayer(p) {
+            if (p.team === null) return;
+
+            const isMe = p.id === myId;
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+
+            if (p.isAdmin) {
+                ctx.font = "16px serif";
+                ctx.textAlign = "center";
+                ctx.fillText("👑", 0, -p.radius - 18);
+            }
+
+            if (isMe) {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                ctx.fill();
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+
+            const mainColor = p.team === "red" ? "#e63946" : (p.team === "blue" ? "#0077b6" : "#475569");
+            const darkColor = p.team === "red" ? "#9b2226" : (p.team === "blue" ? "#03045e" : "#1e293b");
+
+            const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, p.radius);
+            grad.addColorStop(0, mainColor);
+            grad.addColorStop(1, darkColor);
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = p.isAdmin ? "#eab308" : (isMe ? "#ffffff" : "rgba(0,0,0,0.5)");
+            ctx.stroke();
+
+            // Karakterin altında nick (ad) göstərmək
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 12px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            ctx.fillText(p.name || "Oyunçu", 0, p.radius + 6);
+
+            if (isMe && isCharging) {
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius + 12, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * chargePower));
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "#eab308";
+                ctx.stroke();
+            }
+
+            if (playerBubbles[p.id] && Date.now() < playerBubbles[p.id].expiresAt) {
+                const bubbleText = playerBubbles[p.id].text;
+                ctx.font = "12px 'Segoe UI', sans-serif";
+                const textWidth = ctx.measureText(bubbleText).width;
+
+                const bubbleWidth = textWidth + 16;
+                const bubbleHeight = 22;
+                const bubbleY = -p.radius - 28;
+
+                ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.roundRect(-bubbleWidth / 2, bubbleY - bubbleHeight / 2, bubbleWidth, bubbleHeight, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(bubbleText, 0, bubbleY);
+            }
+
+            ctx.restore();
+        }
+
+        function drawBall(b) {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+
+            ctx.beginPath();
+            ctx.arc(3, 3, b.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(-2, -2, 1, 0, 0, b.radius);
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.8, "#dddddd");
+            grad.addColorStop(1, "#aaaaaa");
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = "#333";
+            ctx.stroke();
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
